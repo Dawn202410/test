@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Customer } from '../../pages/CustomerProfile';
 import { z } from 'zod';
 import { ReportFormData } from '@/pages/Report';
 
 const basicInfoSchema = z.object({
   date: z.date(),
-  name: z.string().min(0).optional(), // 完全可选
+  name: z.string().min(1, '姓名不能为空'),
   unit: z.string().min(2, '单位名称至少2个字符'),
-  phone: z.string().min(0).optional() // 完全可选
+  phone: z.string().min(1, '联系电话不能为空')
 });
 
 interface BasicInfoStepProps {
@@ -28,8 +29,8 @@ export default function BasicInfoStep({ onNext, initialData }: BasicInfoStepProp
   useEffect(() => {
     const savedCustomers = localStorage.getItem('customers');
     if (savedCustomers) {
-      const customers = JSON.parse(savedCustomers);
-      const units = Array.from(new Set(customers.map((c: any) => c.unit).filter(Boolean)));
+      const customers = JSON.parse(savedCustomers) as Customer[];
+      const units = Array.from(new Set(customers.map(c => c.unit).filter((unit): unit is string => Boolean(unit))));
       setUnitSuggestions(units);
     }
   }, []);
@@ -122,7 +123,7 @@ export default function BasicInfoStep({ onNext, initialData }: BasicInfoStepProp
                 .filter(unit => unit?.toLowerCase().includes(formData.unit.toLowerCase()))
                 .map((unit, index) => {
                   const savedCustomers = localStorage.getItem('customers');
-                  const customers = savedCustomers ? JSON.parse(savedCustomers) : [];
+                  const customers = savedCustomers ? (JSON.parse(savedCustomers) as Customer[]) : [];
                   const customer = customers.find(c => c.unit === unit);
                   return (
                     <div

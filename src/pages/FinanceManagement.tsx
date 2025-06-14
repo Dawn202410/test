@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AreaChart, BarChart, PieChart, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Area, Bar, Pie, Cell, Legend, Line } from 'recharts';
 import { toast } from 'sonner';

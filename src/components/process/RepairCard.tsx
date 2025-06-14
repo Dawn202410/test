@@ -161,7 +161,7 @@ const [activeTab, setActiveTab] = useState<TabName>('处理记录');
                   <i className="fa-solid fa-phone text-xs mr-1"></i>
                   <span>{repair.phone}</span>
                 </div>
-                <div>{repair.area} {repair.community} {repair.building} {repair.address}</div>
+                <div>{repair.area} {repair.community} {repair.address}</div>
               </div>
             </div>
           </div>

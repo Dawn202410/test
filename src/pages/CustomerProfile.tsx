@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+
 import { 
   ResponsiveContainer,
   PieChart,
@@ -8,12 +9,12 @@ import {
 } from 'recharts';
 import { useNavigate, Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+
 import { motion } from 'framer-motion';
 
 
 
-interface Customer {
+export interface Customer {
    id: string;
    name: string;
    unit?: string;
@@ -39,26 +40,17 @@ export default function CustomerProfile() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [dataWarnings, setDataWarnings] = useState<string[]>([]);
+
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
+
   const [filters, setFilters] = useState({
     repairCount: ''
   });
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
-  const [showBulkActions, setShowBulkActions] = useState(false);
+
   const [filterCommunity, setFilterCommunity] = useState('');
   const [filterAddress, setFilterAddress] = useState('');
   const [filteredRepairs, setFilteredRepairs] = useState<any[]>([]);
-  const [newCustomer, setNewCustomer] = useState<Omit<Customer, 'id' | 'repairCount' | 'lastRepairDate'>>({
-    name: '',
-    unit: '',
-    community: '',
-    address: '',
-    fullAddress: '',
-    repairs: []
-  });
   const navigate = useNavigate();
   const { id } = useParams();
 
@@ -68,7 +60,7 @@ export default function CustomerProfile() {
       setError(null);
       try {
         const savedCustomers = localStorage.getItem('customers');
-        const savedRepairs = localStorage.getItem('repairs');
+
         
         // 如果没有数据且没有ID参数，显示空状态
         if (!savedCustomers && !id) {
@@ -186,16 +178,7 @@ export default function CustomerProfile() {
         console.error('加载客户数据失败:', error);
         const errorMsg = error instanceof Error ? error.message : '未知错误';
         setError(`加载客户数据失败: ${errorMsg}`);
-        if (dataWarnings.length > 0) {
-          toast.warning(`数据加载完成，但有${dataWarnings.length}条警告`, {
-            action: {
-              label: '查看',
-              onClick: () => alert(dataWarnings.join('\n\n'))
-            }
-          });
-        } else {
-          toast.error(`加载失败: ${errorMsg}`);
-        }
+        toast.error(`加载失败: ${errorMsg}`);
       } finally {
         setIsLoading(false);
       }
@@ -287,7 +270,33 @@ export default function CustomerProfile() {
             </div>
           </div>
 
-          {customers.length === 0 ? (
+          {showAddForm ? (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" data-show-add-form={showAddForm}>
+              <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
+                <div className="p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">添加客户</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">小区名称</label>
+                      <input type="text" className="w-full p-2 border rounded-md" placeholder="输入小区名称" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">详细地址</label>
+                      <input type="text" className="w-full p-2 border rounded-md" placeholder="输入详细地址" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">联系电话</label>
+                      <input type="tel" className="w-full p-2 border rounded-md" placeholder="输入联系电话" />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-3 mt-6">
+                    <button onClick={() => setShowAddForm(false)} className="px-4 py-2 border rounded-md hover:bg-gray-50">取消</button>
+                    <button onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">保存</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : customers.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm p-6 text-center py-20">
               <i className="fa-solid fa-users text-4xl text-gray-400 mb-4"></i>
               <h3 className="text-lg font-medium text-gray-700">暂无客户数据</h3>
@@ -338,7 +347,7 @@ export default function CustomerProfile() {
                             customer.repairCount > 5 ? 'bg-red-100 text-red-800' :
                             customer.repairCount > 3 ? 'bg-yellow-100 text-yellow-800' :
                             'bg-green-100 text-green-800'
-                          }`}>
+                          }}`}>
                             报修{customer.repairCount}次
                           </span>
                         </div>

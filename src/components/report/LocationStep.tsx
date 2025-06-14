@@ -1,7 +1,14 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { ReportFormData } from '@/pages/Report';
-import { toast } from 'sonner';
+
+interface Customer {
+  community: string;
+  address: string;
+  unit?: string;
+  name?: string;
+  phone?: string;
+}
 
 const locationSchema = z.object({
   area: z.string().min(1, '请选择区域'),
@@ -58,7 +65,7 @@ export default function LocationStep({ onNext, onPrev, initialData }: LocationSt
   useEffect(() => {
     const savedCustomers = localStorage.getItem('customers');
     if (savedCustomers) {
-      const customers = JSON.parse(savedCustomers);
+      const customers = JSON.parse(savedCustomers) as Customer[];
       const communities = Array.from(new Set(customers.map((c: any) => c.community).filter(Boolean)));
       setCommunitySuggestions(communities);
     }
@@ -68,7 +75,7 @@ export default function LocationStep({ onNext, onPrev, initialData }: LocationSt
     if (formData.community) {
       const savedCustomers = localStorage.getItem('customers');
       if (savedCustomers) {
-        const customers = JSON.parse(savedCustomers);
+        const customers = JSON.parse(savedCustomers) as Customer[];
         const addresses = Array.from(
           new Set(
             customers
@@ -259,7 +266,7 @@ export default function LocationStep({ onNext, onPrev, initialData }: LocationSt
                 .filter(community => community?.toLowerCase().includes(formData.community.toLowerCase()))
                 .map((community, index) => {
                   const savedCustomers = localStorage.getItem('customers');
-                  const customers = savedCustomers ? JSON.parse(savedCustomers) : [];
+                  const customers = savedCustomers ? JSON.parse(savedCustomers) as Customer[] : [];
                   const customer = customers.find(c => c.community === community);
                   return (
                     <div
@@ -308,7 +315,7 @@ export default function LocationStep({ onNext, onPrev, initialData }: LocationSt
                 .filter(address => address?.toLowerCase()?.includes(formData.address.toLowerCase() ?? ''))
                 .map((address, index) => {
                   const savedCustomers = localStorage.getItem('customers');
-                  const customers = savedCustomers ? JSON.parse(savedCustomers) : [];
+                  const customers = savedCustomers ? JSON.parse(savedCustomers) as Customer[] : [];
                   const customer = customers.find(c => c.address === address);
                   return (
                     <div

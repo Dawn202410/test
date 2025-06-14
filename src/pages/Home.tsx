@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
+import React from "react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
+import { useRepairData } from "@/hooks/useRepairData";
+import "@fortawesome/fontawesome-free/css/all.min.css";
 
 interface RoleCardProps {
   title: string;
@@ -39,52 +42,14 @@ function RoleCard({ title, icon, description, to, color, gradient }: RoleCardPro
 }
 
 export default function Home() {
-  const [stats, setStats] = useState({
-    today: 0,
-    completed: 0,
-    processing: 0,
-    pending: 0
-  });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadRepairs = () => {
-      try {
-        const savedRepairs = localStorage.getItem('repairs');
-        if (savedRepairs) {
-          const repairs = JSON.parse(savedRepairs);
-          
-          const today = new Date();
-          const startOfDay = new Date(today);
-          startOfDay.setHours(0, 0, 0, 0);
-          const endOfDay = new Date(today);
-          endOfDay.setHours(23, 59, 59, 999);
-
-          const todayRepairs = repairs.filter((repair: any) => {
-            const repairDate = new Date(repair.date);
-            return repairDate >= startOfDay && repairDate <= endOfDay;
-          });
-
-          const completedRepairs = repairs.filter((repair: any) => repair.status === '已完成');
-          const processingRepairs = repairs.filter((repair: any) => repair.status === '处理中');
-          const pendingRepairs = repairs.filter((repair: any) => repair.status === '待处理');
-
-          setStats({
-            today: todayRepairs.length,
-            completed: completedRepairs.length,
-            processing: processingRepairs.length,
-            pending: pendingRepairs.length
-          });
-        }
-      } catch (error) {
-        console.error('加载报修数据失败:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadRepairs();
-  }, []);
+  const { stats, loading, error } = useRepairData();
+  
+  const todayStats = {
+    today: stats[0]?.value || 0,
+    completed: stats[1]?.value || 0,
+    processing: stats[2]?.value || 0,
+    pending: stats[3]?.value || 0
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-100">
@@ -130,7 +95,7 @@ export default function Home() {
               </div>
             ) : (
               <>
-                <div className="text-3xl font-bold text-blue-600 mb-2">{stats.today}</div>
+                <div className="text-3xl font-bold text-blue-600 mb-2">{todayStats.today}</div>
                 <div className="text-gray-500">今日报修</div>
               </>
             )}
@@ -142,7 +107,7 @@ export default function Home() {
               </div>
             ) : (
               <>
-                <div className="text-3xl font-bold text-green-600 mb-2">{stats.completed}</div>
+                <div className="text-3xl font-bold text-green-600 mb-2">{todayStats.completed}</div>
                 <div className="text-gray-500">已处理</div>
               </>
             )}
@@ -154,7 +119,7 @@ export default function Home() {
               </div>
             ) : (
               <>
-                <div className="text-3xl font-bold text-yellow-600 mb-2">{stats.processing}</div>
+                <div className="text-3xl font-bold text-yellow-600 mb-2">{todayStats.processing}</div>
                 <div className="text-gray-500">处理中</div>
               </>
             )}
@@ -166,7 +131,7 @@ export default function Home() {
               </div>
             ) : (
               <>
-                <div className="text-3xl font-bold text-red-600 mb-2">{stats.pending}</div>
+                <div className="text-3xl font-bold text-red-600 mb-2">{todayStats.pending}</div>
                 <div className="text-gray-500">待处理</div>
               </>
             )}

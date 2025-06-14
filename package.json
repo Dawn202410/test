@@ -1,12 +1,21 @@
 {
+  "type": "module",
   "name": "property-repair-system",
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "@vitejs/plugin-react": "^4.2.1",
+    "@fortawesome/fontawesome-free": "^6.7.2",
+    "@heroicons/react": "^2.2.0",
+    "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/typography": "^0.5.16",
+    "@vitejs/plugin-react": "^4.5.2",
+    "axios": "^1.9.0",
     "clsx": "^2.1.1",
+    "express-validator": "^7.2.1",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.9.2",
+    "mongodb": "^6.17.0",
+    "mongoose": "^8.15.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-error-boundary": "^4.0.13",
@@ -14,8 +23,8 @@
     "recharts": "^2.15.1",
     "sonner": "^2.0.2",
     "tailwind-merge": "^3.0.2",
-    "vite": "^5.2.0",
-    "vite-tsconfig-paths": "^4.2.1",
+    "vite": "^6.3.5",
+    "vite-tsconfig-paths": "^5.1.4",
     "xlsx": "^0.18.5",
     "zod": "^3.24.2"
   },
@@ -25,7 +34,10 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@babel/plugin-transform-react-jsx": "^7.27.1",
+    "@babel/plugin-transform-template-literals": "^7.27.1",
     "@tailwindcss/postcss": "^4.1.8",
+    "@types/react": "^19.1.8",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.4",
     "tailwindcss": "^4.1.8"

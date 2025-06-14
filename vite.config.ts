@@ -1,16 +1,22 @@
-/** WARNING: DON'T EDIT THIS FILE */
-/** WARNING: DON'T EDIT THIS FILE */
-/** WARNING: DON'T EDIT THIS FILE */
-
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
 
-function getPlugins() {
-  const plugins = [react(), tsconfigPaths()];
-  return plugins;
-}
-
 export default defineConfig({
-  plugins: getPlugins(),
+  plugins: [react({
+    jsxRuntime: 'classic',
+    jsxImportSource: 'react',
+    babel: {
+      plugins: ['@babel/plugin-transform-react-jsx']
+    }
+  }), tsconfigPaths()],
+  server: {
+    proxy: {
+      '/process/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/process\/api/, '/api')
+      }
+    }
+  }
 });

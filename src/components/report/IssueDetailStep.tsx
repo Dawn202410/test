@@ -1,8 +1,9 @@
-import { useState, useRef, ChangeEvent } from 'react';
+import React from 'react';
+import { useState, ChangeEvent } from 'react';
 import { z } from 'zod';
-import { ReportFormData } from '@/pages/Report';
+import type { ReportFormData } from '@/pages/Report';
 import { toast } from 'sonner';
-import { motion } from 'framer-motion';
+
 import { useNavigate } from 'react-router-dom';
 
 
@@ -10,25 +11,29 @@ import { useNavigate } from 'react-router-dom';
 
 const issueDetailSchema = z.object({
   type: z.string().min(1, '请选择故障类型'),
-  priority: z.enum(['高', '中', '低']),
+  priority: z.enum(['high', 'medium', 'low']),
   description: z.string().min(1, '请输入故障描述')
 });
+
+interface IssueFormData extends Partial<ReportFormData> {
+  type?: string;
+  priority?: 'high' | 'medium' | 'low';
+  description?: string;
+  images?: string[];
+}
 
 interface IssueDetailStepProps {
   onSubmit: (data: Partial<ReportFormData>) => void;
   onPrev: () => void;
-  initialData: Partial<ReportFormData>;
+  initialData: IssueFormData;
+  isSubmitting?: boolean;
 }
 
 export default function IssueDetailStep({ onSubmit, onPrev, initialData }: IssueDetailStepProps) {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    type: initialData.type || '',
-    priority: initialData.priority || '中',
-    description: initialData.description || ''
-  });
+  const [formData, setFormData] = useState<IssueFormData>({    type: initialData.type || '',    priority: initialData.priority || 'medium',    description: initialData.description || '',    images: initialData.images || []  });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
 
   const faultTypes = [
     '楼宇对讲系统',
@@ -37,32 +42,9 @@ export default function IssueDetailStep({ onSubmit, onPrev, initialData }: Issue
     '道闸系统'
   ];
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-  };
-
-  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const files = Array.from(e.target.files);
-      if (files.length + formData.images.length > 3) {
-        setErrors({ ...errors, images: '最多上传3张图片' });
-        return;
-      }
-
-      const newImages = files.map(file => URL.createObjectURL(file));
-      setFormData({
-        ...formData,
-        images: [...formData.images, ...newImages]
-      });
-    }
-  };
-
-  const removeImage = (index: number) => {
-    const newImages = [...formData.images];
-    URL.revokeObjectURL(newImages[index]);
-    newImages.splice(index, 1);
-    setFormData({ ...formData, images: newImages });
   };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -122,35 +104,28 @@ export default function IssueDetailStep({ onSubmit, onPrev, initialData }: Issue
     setIsSubmitting(true);
     
     try {
-      const validatedData = issueDetailSchema.parse(formData);
-        try {
-          const result = await onSubmit(validatedData);
-          if (!result) {
-            throw new Error('提交失败，请重试');
-          }
-          toast.success('报修工单已成功保存', {
-            position: 'top-center',
-            duration: 3000
-          });
-          navigate('/');
-          // 重置表单
-          setFormData({
-            type: '',
-            priority: '中',
-            description: ''
-          });
-          // 返回第一步
-          onPrev();
-        } catch (error) {
-          console.error('保存工单失败:', error);
-          toast.error(`保存工单失败: ${error instanceof Error ? error.message : '请重试'}`, {
-            position: 'top-center',
-            duration: 5000,
-            action: {
-              label: '重试',
-              onClick: () => handleSubmit(e)
-            }
-          });
+      const validatedData: Partial<ReportFormData> = issueDetailSchema.parse(formData);
+      try {
+        const result = await onSubmit(validatedData as Partial<ReportFormData>);
+        if (typeof result === 'undefined') {
+          throw new Error('提交失败，请重试');
+        }
+        toast.success('报修工单已成功保存', {
+          position: 'top-center',
+          duration: 3000
+        });
+        navigate('/');
+        // 重置表单
+        setFormData({
+          type: '',
+          priority: 'medium',
+          description: ''
+        });
+        // 返回第一步
+        onPrev();
+      } catch (error) {
+        console.error('保存工单失败:', error);
+        toast.error(`保存工单失败: ${error instanceof Error ? error.message : '请重试'}`);
       }
     } catch (error) {
       console.error('表单验证失败:', error);
@@ -207,7 +182,7 @@ export default function IssueDetailStep({ onSubmit, onPrev, initialData }: Issue
               name="type"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none"
               value={formData.type}
-              onChange={handleChange}
+              onChange={(e) => handleChange(e as unknown as ChangeEvent<HTMLInputElement>)}
             >
               <option value="">请选择故障类型</option>
               {faultTypes.map(type => (
@@ -231,8 +206,8 @@ export default function IssueDetailStep({ onSubmit, onPrev, initialData }: Issue
               <input
                 type="radio"
                 name="priority"
-                value="高"
-                checked={formData.priority === '高'}
+                value="high"
+                checked={formData.priority === 'high'}
                 onChange={handleChange}
                 className="h-5 w-5 text-red-500 focus:ring-red-500 border-gray-300"
               />
@@ -242,8 +217,8 @@ export default function IssueDetailStep({ onSubmit, onPrev, initialData }: Issue
               <input
                 type="radio"
                 name="priority"
-                value="中"
-                checked={formData.priority === '中'}
+                value="medium"
+                checked={formData.priority === 'medium'}
                 onChange={handleChange}
                 className="h-5 w-5 text-yellow-500 focus:ring-yellow-500 border-gray-300"
               />
@@ -253,8 +228,8 @@ export default function IssueDetailStep({ onSubmit, onPrev, initialData }: Issue
               <input
                 type="radio"
                 name="priority"
-                value="低"
-                checked={formData.priority === '低'}
+                value="low"
+                checked={formData.priority === 'low'}
                 onChange={handleChange}
                 className="h-5 w-5 text-green-500 focus:ring-green-500 border-gray-300"
               />

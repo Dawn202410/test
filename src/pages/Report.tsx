@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
+import api from '@/lib/api';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import ProgressBar from '@/components/report/ProgressBar';
 import BasicInfoStep from '@/components/report/BasicInfoStep';
-import LocationStep from '@/components/report/LocationStep';
+import LocationStep from '@/components/report/locationstep';
 import IssueDetailStep from '@/components/report/IssueDetailStep';
 
 // 报修类型到英文缩写的映射
@@ -20,26 +21,67 @@ const REPAIR_TYPE_MAP: Record<string, string> = {
 
 const reportSchema = z.object({
   date: z.date(),
-  name: z.string().min(0).optional(), // 完全可选
+  name: z.string().min(1, '姓名不能为空'),
   unit: z.string().min(2, '单位名称至少2个字符'),
-  phone: z.string().min(0).optional(), // 完全可选，不再验证格式
+  phone: z.string().min(1, '联系电话不能为空'),
   area: z.string().min(1, '请选择区域'),
   community: z.string().min(1, '请输入小区名称'),
   address: z.string().min(2, '详细地址至少2个字符'),
   type: z.string().min(1, '请选择故障类型'),
-  priority: z.enum(['高', '中', '低']),
-  description: z.string().min(1, '请输入故障描述')
+  priority: z.enum(['high', 'medium', 'low']),
+  description: z.string().min(2, '故障描述至少2个字符'),
+  repairId: z.string().min(1, 'Repair ID is required'), // 新增必需字段
+  customerId: z.string().min(1, 'Customer ID is required') // 新增必需字段
 });
 
 export type ReportFormData = z.infer<typeof reportSchema> & {
   community: string;
   address: string;
   customerId?: string;
+  repairId?: string;
 };
 
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
+  constructor(props: {children: React.ReactNode}) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): {hasError: boolean, error: Error} {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("Report组件捕获到错误:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
+          <h2 className="text-xl font-bold text-red-600 mb-2">发生错误</h2>
+          <p className="text-red-500 mb-4">{this.state.error?.message || '未知错误导致页面无法加载'}</p>
+          <button 
+            onClick={() => this.setState({ hasError: false, error: null })} 
+            className="bg-blue-500 text-white px-4 py-2 rounded"
+          >
+            尝试恢复
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 export default function Report() {
+  console.log('Report组件开始渲染');
+  // 检查导入的组件是否存在
+  console.log('导入的组件:', { ProgressBar, BasicInfoStep, LocationStep, IssueDetailStep });
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<Partial<ReportFormData>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const handleNext = (data: Partial<ReportFormData>) => {
@@ -52,216 +94,80 @@ export default function Report() {
   };
 
   // 生成工单ID: YYYYMMDD-TYPE-XXX
-  const generateRepairId = (date: Date, type: string, existingRepairs: any[]) => {
+  const generateRepairId = (date: Date, type: string) => {
     const dateStr = date.toISOString().split('T')[0].replace(/-/g, '');
     const typeAbbr = REPAIR_TYPE_MAP[type] || 'OT'; // OT for Other
     
-    // 获取当天同类型工单数量
-    const sameDaySameTypeCount = existingRepairs.filter(repair => {
-      const repairDate = new Date(repair.date).toISOString().split('T')[0].replace(/-/g, '');
-      return repairDate === dateStr && repair.type === type;
-    }).length;
-    
-    const seq = String(sameDaySameTypeCount + 1).padStart(3, '0');
+    // 这里简化处理，实际应从服务器获取序列
+    const seq = '001';
     return `${dateStr}-${typeAbbr}-${seq}`;
   };
 
+  // 生成符合MongoDB ObjectId格式的ID (24位十六进制字符)
   const generateCustomerId = () => {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
+    const chars = '0123456789abcdef';
+    let id = '';
+    for (let i = 0; i < 24; i++) {
+      id += chars[Math.floor(Math.random() * 16)];
+    }
+    return id;
   };
-
+  
+  // 修改保存逻辑
   const handleSubmit = async (data: Partial<ReportFormData>) => {
+    setIsSubmitting(true);
+    
     try {
-      // 合并表单数据
-      const completeData = { ...formData, ...data };
+      console.log('开始提交报修工单:', data);
       
-      // 严格验证表单数据
-      try {
-        reportSchema.parse(completeData);
-      } catch (error) {
-        if (error instanceof z.ZodError) {
-          const firstError = error.errors[0];
-          toast.error(`表单验证失败: ${firstError.message}`, {
-            position: 'top-center',
-            duration: 5000,
-            action: {
-              label: '前往填写',
-              onClick: () => {
-                const element = document.querySelector(`[name="${firstError.path[0]}"]`);
-                if (element) {
-                  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  (element as HTMLElement).focus();
-                }
-              }
-            }
-          });
-        } else {
-          toast.error('表单数据不完整或格式错误');
-        }
-        throw error;
-      }
-
-      // 获取现有数据
-      let repairs = [];
-      let customers = [];
-      try {
-        const existingRepairs = localStorage.getItem('repairs');
-        const existingCustomers = localStorage.getItem('customers') || '[]';
-        
-        // 初始化变量确保是数组
-        repairs = [];
-        customers = [];
-        
-        // 验证JSON格式
-        try {
-          repairs = existingRepairs ? JSON.parse(existingRepairs) : [];
-          customers = JSON.parse(existingCustomers);
-        } catch (e) {
-          throw new Error('数据格式错误，请尝试清除浏览器缓存');
-        }
-        
-        // 验证数据格式
-        if (!Array.isArray(repairs) || !Array.isArray(customers)) {
-          throw new Error('本地存储数据格式错误');
-        }
-      } catch (storageError) {
-        console.error('读取本地存储失败:', storageError);
-        toast.error(`读取系统数据失败: ${storageError instanceof Error ? storageError.message : '未知错误'}`, {
-          action: {
-            label: '刷新页面',
-            onClick: () => window.location.reload()
-          }
-        });
-        throw storageError;
-      }
-      
-      // 生成工单ID
-      const repairId = generateRepairId(completeData.date, completeData.type, repairs);
-      
-      // 创建新工单
-      const newRepair = {
-        ...completeData,
-        id: repairId,
-        status: '待处理',
-        notes: [],
-        processedBy: '',
-        completedAt: null,
-        customerId: generateCustomerId(),
-        community: completeData.community,
-        address: completeData.address
+      // 确保所有必要字段都存在
+      const completeData = {
+        ...formData,
+        ...data,
+        date: new Date(), // 确保有日期
+        repairId: generateRepairId(new Date(), data.type || formData.type || ''),
+        customerId: generateCustomerId()
       };
       
-          // 更新客户信息
-          try {
-          // 查找是否已存在相同小区和地址的客户
-          const existingCustomerIndex = customers.findIndex(c => 
-            c.community === completeData.community && 
-            c.address === completeData.address
-          );
-          
-          if (existingCustomerIndex >= 0) {
-            // 更新现有客户
-            const customer = customers[existingCustomerIndex];
-            customer.repairCount += 1;
-            customer.lastRepairDate = new Date();
-              
-              // 确保repairs数组存在且是数组
-              if (!customer.repairs || !Array.isArray(customer.repairs)) {
-                customer.repairs = [];
-              }
-              
-              // 检查是否已存在相同工单ID，避免重复添加
-              const existingRepairIndex = customer.repairs.findIndex(r => r.id === repairId);
-              if (existingRepairIndex === -1) {
-                // 添加新工单
-                customer.repairs.push({
-                  id: repairId,
-                  type: completeData.type,
-                  status: '待处理',
-                  date: completeData.date,
-                  priority: completeData.priority
-                });
-                // 立即更新本地存储
-                localStorage.setItem('customers', JSON.stringify(customers));
-              }
-            } else {
-              // 创建新客户
-              const newCustomer = {
-                id: newRepair.customerId,
-                name: completeData.name,
-                phone: completeData.phone,
-                unit: completeData.unit,
-                community: completeData.community,
-                address: completeData.address,
-                fullAddress: `${completeData.community} ${completeData.address}`.trim(),
-                repairCount: 1,
-                lastRepairDate: new Date(),
-                repairs: [{
-                  id: repairId,
-                  type: completeData.type,
-                  status: '待处理',
-                  date: completeData.date,
-                  priority: completeData.priority
-                }]
-              };
-              // 确保新客户的repairs数组有效
-              if (!newCustomer.repairs || !Array.isArray(newCustomer.repairs)) {
-                newCustomer.repairs = [];
-              }
-              customers.push(newCustomer);
-            }
-            
-            // 确保新工单有正确的customerId
-            newRepair.customerId = existingCustomerIndex >= 0 
-              ? customers[existingCustomerIndex].id 
-              : newRepair.customerId;
-        
-        // 保存数据
-        try {
-          localStorage.setItem('repairs', JSON.stringify([...repairs, newRepair]));
-          localStorage.setItem('customers', JSON.stringify(customers));
-          localStorage.setItem('latestReport', JSON.stringify(completeData));
-          
-          toast.success('报修工单已成功保存', {
-            position: 'top-center',
-            duration: 2000
-          });
-          navigate('/process');
-          return true;
-        } catch (saveError) {
-          console.error('保存数据失败:', saveError);
-          toast.error('保存数据失败，请检查存储空间或重试', {
-            action: {
-              label: '重试',
-              onClick: () => handleSubmit(data)
-            }
-          });
-          throw saveError;
-        }
-      } catch (customerError) {
-        console.error('更新客户数据失败:', customerError);
-        toast.error(`更新客户信息失败: ${customerError instanceof Error ? customerError.message : '未知错误'}`);
-        throw customerError;
+      // 验证数据
+      // 前端已传递英文优先级，直接使用
+const validatedData = reportSchema.parse(completeData);
+      
+      const response = await api.post('/api/processes', validatedData);
+      
+      if (!response.data.id) {
+        console.error('工单保存失败: 服务器响应无效', response);
+        throw new Error('未能获取工单ID');
       }
+      
+      console.log('工单保存成功:', response.data);
+      toast.success('报修工单提交成功！');
+      
+      // 导航到成功页面
+      navigate('/success', { state: { repairId: validatedData.repairId } });
+      
+      return true;
     } catch (error) {
-      console.error('保存报修工单失败:', error);
-      if (!(error instanceof z.ZodError)) {
-        toast.error(`保存报修工单失败: ${error instanceof Error ? error.message : '请重试'}`, {
-          position: 'top-center',
-          action: {
-            label: '刷新页面',
-            onClick: () => window.location.reload()
-          }
-        });
+      console.error('工单保存失败:', {
+        error,
+        requestData: data,
+        timestamp: new Date().toISOString()
+      });
+      
+      if (error instanceof z.ZodError) {
+        // 处理表单验证错误
+        const errors = error.errors.map(err => err.message).join(', ');
+        toast.error(`表单验证失败: ${errors}`);
+      } else {
+        toast.error('提交失败，请重试');
       }
+      
       return false;
+    } finally {
+      setIsSubmitting(false);
     }
   };
-
+    
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-3xl mx-auto p-6">
@@ -279,7 +185,6 @@ export default function Report() {
           <ProgressBar currentStep={step} />
         </div>
 
-        
         <div className="bg-white rounded-lg shadow-md p-6 mt-6">
           {step === 1 && <BasicInfoStep onNext={handleNext} initialData={formData} />}
           {step === 2 && (
@@ -294,6 +199,7 @@ export default function Report() {
               onSubmit={handleSubmit} 
               onPrev={handlePrev} 
               initialData={formData} 
+              isSubmitting={isSubmitting}
             />
           )}
         </div>
